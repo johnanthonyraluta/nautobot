@@ -6,6 +6,9 @@ from jinja2 import Environment, FileSystemLoader
 from data_output.region_list import region_list
 import pandas as pd
 import uuid
+pd.set_option('display.max_rows', 500)
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
 
 file_path = "C:\\Users\\jraluta\\nautobot\\"
 device_list = []
@@ -90,6 +93,30 @@ class render_template():
             v6=row['IPV6_MANAGEMENT_IP'].strip()
             v11=row["device/id"]
             device_dict = {'v1':v1,'v5':v5,'v6':v6,'v11':v11}
+            device_output = self.template(template_type,device_dict)
+            device_list.append(device_output)
+        return device_list
+
+    def custom_field(self,template_type = "custom.j2"):
+        device_dict = {}
+        df = pd.read_csv("data_input\\site_info.csv")
+        df1 = pd.read_csv("data_input\\interface_id_ver2.csv")
+        result = pd.merge(df, df1, how='left', on=["HOSTNAME", "HOSTNAME"])
+        print(result.head())
+        result["SID_ABSOLUTE_PREFIX"] = result["SID_ABSOLUTE_PREFIX"].fillna(0)
+        result["SID_ABSOLUTE_STRICT_PREFIX"] = result["SID_ABSOLUTE_STRICT_PREFIX"].fillna(0)
+        result["ANY_CAST_SID"] = result["ANY_CAST_SID"].fillna(0)
+        result = result.astype({"SID_ABSOLUTE_PREFIX": int, "SID_ABSOLUTE_STRICT_PREFIX": int,\
+                                 "ANY_CAST_SID":int},errors='ignore')
+        print(result[["HOSTNAME", "SID_ABSOLUTE_PREFIX", "SID_ABSOLUTE_STRICT_PREFIX", "ANY_CAST_SID"]])
+        for index, row in result.iterrows():
+            v1=row['HOSTNAME'].strip()
+            v8=row['SID_ABSOLUTE_PREFIX']
+            v9=row['SID_ABSOLUTE_STRICT_PREFIX']
+            v10=row['ANY_CAST_SID']
+            v11=row["device/id"]
+            v12=row["PHASE"]
+            device_dict = {'v1':v1,'v8':v8,'v9':v9,'v10':v10,'v11':v11,'v12':v12}
             device_output = self.template(template_type,device_dict)
             device_list.append(device_output)
         return device_list

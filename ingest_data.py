@@ -81,6 +81,18 @@ def update_device():
             print('Cannot upload '+devices + '. Check for duplicates or hostname in wrong format!')
     print("Done")
 
+def update_custom():
+    my_custom = nautobot.dcim.devices.get("69335dae-0cf6-4fdb-8780-a04b7f46fa40")
+    render_custom = render_template()
+    to_add_custom = render_custom.custom_field()
+    for fields in to_add_custom:
+        try:
+            print(fields)
+            add_custom = my_custom.update(json.loads(fields))
+        except:
+            print('Cannot upload '+fields + '.')
+    print("Done")
+
 def inventory():
     my_inventory = nautobot.dcim.inventory_items
     render_devices = render_template()
@@ -102,7 +114,7 @@ def main():
     input = sys.argv[1]
 
     if input == "device":
-        device()
+        devices()
     if input == "region":
         region()
     if input == "roles":
@@ -111,8 +123,10 @@ def main():
         interface()
     if input == "ipam":
         ipam()
-    if input == "update_device"
+    if input == "update_device":
         update_device()
+    if input == "custom":
+        update_custom()
     if input == "inventory":
         inventory()
 
