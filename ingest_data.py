@@ -7,8 +7,8 @@ import sys
 
 
 nautobot = pynautobot.api(
-    url="http://10.66.69.142:8481/",
-    token="5af16d6a2ffa79f62103139d2414d0f214edc7ad")
+    url="http://10.66.69.149:8481/",
+    token="b7d568b9a5a400a249a057fca8a2b0d6dcc05828")
 
 def devices():
     my_devices = nautobot.dcim.devices
@@ -18,9 +18,10 @@ def devices():
         try:
             print(devices)
             devices_conv = json.loads(devices)
-            add_devices = my_devices.create(json.loads(devices))
-        except:
-            print('Cannot upload '+devices + '. Check for duplicates or hostname in wrong format!')
+            add_devices = my_devices.create(devices_conv)
+        except pynautobot.RequestError as e:
+            print(e.error)
+            pass
     print("Done")
 
 def region():
@@ -28,8 +29,7 @@ def region():
     render_region = render_template()
     to_add_region = render_region.region()
     for regions in to_add_region:
-        regions_conv = json.loads(regions)
-        add_region = my_region.create(json.loads(regions))
+        add_region = my_region.create(regions)
     print("Done")
 
 def roles():
@@ -42,35 +42,78 @@ def roles():
         add_roles = my_roles.create(json.loads(roles))
     print("Done")
 
-def interface():
+def sites():
+    my_sites = nautobot.dcim.sites
+    render_sites = render_template()
+    to_add_sites = render_sites.sites()
+    for sites in to_add_sites:
+        try:
+            print(sites)
+            sites_conv = json.loads(sites)
+            add_sites = my_sites.create(sites_conv)
+        except pynautobot.RequestError as e:
+            print(e.error)
+            pass
+    print("Done")
+
+def loopback():
     my_interface = nautobot.dcim.interfaces
     render_interfaces = render_template()
-    to_add_interfaces = render_interfaces.interfaces()
+    to_add_interfaces = render_interfaces.loop_interfaces()
     for interfaces in to_add_interfaces:
         try:
             print(interfaces)
             interfaces_conv = json.loads(interfaces)
-            add_interfaces = my_interface.create(json.loads(interfaces))
+            add_interfaces = my_interface.create(interfaces_conv)
         except:
             print('Cannot upload ' + interfaces)
     print("Done")
 
-def ipam():
+def ipadd_loop():
     my_ipadd = nautobot.ipam.ip_addresses
     render_ipadd = render_template()
-    to_add_ipadd = render_ipadd.ipadd_be()
+    to_add_ipadd = render_ipadd.ipadd_loopback()
 
     for ipadd in to_add_ipadd:
         try:
             print(ipadd)
             ipadd_conv = json.loads(ipadd)
-            add_ipadd = my_ipadd.create(json.loads(ipadd))
-        except:
-            print('Cannot upload ' + ipadd)
+            add_ipadd = my_ipadd.create(ipadd_conv)
+        except pynautobot.RequestError as e:
+            print(e.error)
+            pass
+    print("Done")
+
+def assign_primary():
+    my_primary = nautobot.dcim.devices.get("33e89bbe-6da2-411e-9fca-7792a66b22bf")
+    render_primary = render_template()
+    to_add_primary = render_primary.patch_devices()
+    for pri in to_add_primary:
+        try:
+            print(pri)
+            pri_conv = json.loads(pri)
+            add_primary = my_primary.update(pri_conv)
+        except pynautobot.RequestError as e:
+            print(e.error)
+            pass
+    print("Done")
+
+def ipadd_be():
+    my_ipadd = nautobot.ipam.ip_addresses
+    render_ipadd = render_template()
+    to_add_ipadd = render_ipadd.ipadd_be()
+    for ipadd in to_add_ipadd:
+        try:
+            print(ipadd)
+            ipadd_conv = json.loads(ipadd)
+            add_ipadd = my_ipadd.create(ipadd_conv)
+        except pynautobot.RequestError as e:
+            print(e.error)
+            pass
     print("Done")
 
 def update_device():
-    my_devices = nautobot.dcim.devices.get("69335dae-0cf6-4fdb-8780-a04b7f46fa40")
+    my_devices = nautobot.dcim.devices.get("33e89bbe-6da2-411e-9fca-7792a66b22bf")
     render_devices = render_template()
     to_add_devices = render_devices.patch_devices()
     for devices in to_add_devices:
@@ -82,7 +125,7 @@ def update_device():
     print("Done")
 
 def update_custom():
-    my_custom = nautobot.dcim.devices.get("69335dae-0cf6-4fdb-8780-a04b7f46fa40")
+    my_custom = nautobot.dcim.devices.get("33e89bbe-6da2-411e-9fca-7792a66b22bf")
     render_custom = render_template()
     to_add_custom = render_custom.custom_field()
     for fields in to_add_custom:
@@ -98,10 +141,12 @@ def inventory():
     render_devices = render_template()
     to_add_inventory = render_devices.inventory()
     for inventory in to_add_inventory:
-        # try:
-        add_inventory = my_inventory.create(json.loads(inventory))
-        # except:
-        #     print('Cannot upload '+devices + '. Check for duplicates or hostname in wrong format!')
+        try:
+            print(inventory)
+            add_inventory = my_inventory.create(json.loads(inventory))
+        except pynautobot.RequestError as e:
+            print(e.error)
+            pass
     print("Done")
 
 def main():
@@ -118,17 +163,24 @@ def main():
     if input == "region":
         region()
     if input == "roles":
-        roles()
-    if input == "interface":
-        interface()
-    if input == "ipam":
-        ipam()
-    if input == "update_device":
-        update_device()
+        try:
+            roles()
+        except:
+            print('Aborted!')
+    if input == "loopback":
+        loopback()
+    if input == "ipadd_loop":
+        ipadd_loop()
+    if input == "assign_primary":
+        assign_primary()
+    if input == "ipadd_be":
+        ipadd_be()
     if input == "custom":
         update_custom()
     if input == "inventory":
         inventory()
+    if input == "sites":
+        sites()
 
 if __name__ == '__main__':
     main()

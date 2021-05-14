@@ -1,8 +1,8 @@
-AN,an,Aggregation Node
-ASBR,asbr,Autonomous System Boundary Route
-DN,dn,Distribution Node
-P,p,Provider Node
-PE,pe,Provider Edge Node
-S-RR,s-rr,Service Route Reflector
-T-RR,t-rr,Transport Route Reflector
-XTC,xtc,XTC
+AN,an,Aggregation Node,00bcd4,False
+ASBR,asbr,Autonomous System Boundary Router,ffc107,False
+DN,dn,Distribution Node,4caf50,False
+P,p,Provider Node,607d8b,False
+PE,pe,Provider Edge Node,ffeb3b,False
+S-RR,s-rr,Service Route Reflector,03a9f4,False
+T-RR,t-rr,Transport Route Reflector,ff66ff,False
+XTC,xtc,XTC,f44336,True
