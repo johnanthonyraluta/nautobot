@@ -5,7 +5,7 @@ import ast
 from jinja2 import Environment, FileSystemLoader
 from data_output.region_list import region_list
 import pandas as pd
-import uuid
+from netaddr import IPAddress
 pd.set_option('display.max_rows', 500)
 pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
@@ -16,6 +16,7 @@ roles_list = []
 interface_list = []
 ipadd_list = []
 site_list = []
+tmp_list = []
 class render_template():
 
     def template(self,template_type,dict_type):
@@ -140,31 +141,45 @@ class render_template():
         return device_list
 
     def inventory(self,template_type = "inventory.j2"):
-        inventory_dict = {}
-        df = pd.read_csv("data_output\\showplat_facts.csv")
-        df = df.dropna()
-        df1 = pd.read_csv("data_input\\interface_id_prod.csv")
-        df1 = df1.dropna()
-        #merge but just display the common outputs
-        #results = pd.merge(df, df1, how='left', on=["SOURCE_BUNDLE_INTERFACE", "SOURCE_BUNDLE_INTERFACE"])
-        results = df.merge(df1[['HOSTNAME','device/id']])
-        results = results.dropna()
-        results = results.drop_duplicates()
-        #print(results)
-        #print(resd)
+        tmp_dict = {}
+        # df = pd.read_csv("data_output\\showplat_facts.csv")
+        # df = df.dropna()
+        # df1 = pd.read_csv("data_input\\interface_id_prod.csv")
+        # df1 = df1.dropna()
+        # #merge but just display the common outputs
+        # #results = pd.merge(df, df1, how='left', on=["SOURCE_BUNDLE_INTERFACE", "SOURCE_BUNDLE_INTERFACE"])
+        # results = df.merge(df1[['HOSTNAME','device/id']])
+        # results = results.dropna()
+        # results = results.drop_duplicates()
+        # #print(results)
+        # #print(resd)
+        # for index, row in results.iterrows():
+        #     v1=row['device/id']
+        #     v2=row['HOSTNAME']
+        #     modules=row['MODULES']
+        #     #v2 = v2_.replace("'",'"')
+        #     modules = ast.literal_eval(modules)
+        #     for module in modules:
+        #         v4 = module['location'].strip()
+        #         v3 = module['card_type'].strip()
+        #         device_dict = {'v1':v1,'v2':v2,'v3':v3,'v4':v4}
+        #         device_output = self.template(template_type,device_dict)
+        #         device_list.append(device_output)
+        df = pd.read_csv("data_input\\service_discovery_show_version.csv")
+        results = df
         for index, row in results.iterrows():
-            v1=row['device/id']
-            v2=row['HOSTNAME']
-            modules=row['MODULES']
-            #v2 = v2_.replace("'",'"')
-            modules = ast.literal_eval(modules)
-            for module in modules:
-                v4 = module['location'].strip()
-                v3 = module['card_type'].strip()
-                device_dict = {'v1':v1,'v2':v2,'v3':v3,'v4':v4}
-                device_output = self.template(template_type,device_dict)
-                device_list.append(device_output)
-        return device_list
+            v1 = ""
+            v2 = row["hostname"]
+            v3 = row["name"]
+            v4 = row["vid"]
+            v5 = row["descr"]
+            v6 = row["pid"]
+            v7 = row["sn"]
+            tmp_dict = {'v1':v1,'v2':v2,'v3':v3,'v4':v4,'v5':v5,'v6':v6,'v7':v7}
+            tmp_output = self.template(template_type,tmp_dict)
+            tmp_list.append(tmp_output)
+            print("Done inventory " + v2)
+        return tmp_list
 
 
     def loop_interfaces(self,template_type = "interface.j2"):
@@ -240,42 +255,346 @@ class render_template():
                         ipadd_list.append(ipadd_output)
         return ipadd_list
 
-    def ipadd_be(self,template_type = "ip_add_be.j2"):
+    def phy_int(self,template_type = "physical.j2"):
         ipadd_dict = {}
-        df = pd.read_csv("data_input\\be_interface_ip.csv")
-        df = df.dropna()
-        df1 = pd.read_csv("data_input\\interface_id_prod.csv")
-        df1 = df1[~df1.SOURCE_BUNDLE_INTERFACE.str.contains("Loopback")]
-        df1 = df1[~df1.SOURCE_BUNDLE_INTERFACE.str.contains("HundredGigE")]
-        df1 = df1.dropna()
+        phy_be_df = pd.read_csv("data_input\\service_discovery_show_run_interface_bundle.csv")
+        phy_l3_df = pd.read_csv("data_input\\service_discovery_show_run_interface_l3vpn.csv")
+        phy_l2_df = pd.read_csv("data_input\\service_discovery_show_run_interface_l2vpn.csv")
+        phy_be_df["bundle_id"] = "Bundle-Ether" + phy_be_df["bundle_id"].astype(str)
+        phy_be_df["description"] = " "
+        phy_be_df = phy_be_df[["hostname","interface","description","bundle_id"]]
+        phy_l3_df_ = phy_l3_df[~phy_l3_df.interface.str.contains("Loopback")]
+        phy_l3_df__ = phy_l3_df_[~phy_l3_df_.interface.str.contains("Bundle-Ether")]
+        phy_l3_df__["bundle_id"] = " "
+        phy_l3_df__ = phy_l3_df__[["hostname","interface","description","bundle_id"]]
+        phy_l2_df_ = phy_l2_df[~phy_l2_df.interface.str.contains("Bundle-Ether")]
+        phy_l2_df_["bundle_id"] = " "
+        phy_l2_df_ = phy_l2_df_[["hostname", "interface", "description", "bundle_id"]]
+        results = pd.concat([phy_be_df,phy_l3_df__,phy_l2_df_], ignore_index=True)
+        results.to_csv("data_output/physical.csv", index=False)
+        print(results.head(100))
+        for index, row in results.iterrows():
+            v1 = row['hostname']
+            v2 = row['interface']
+            v3 = row['description']
+            v4 = row['bundle_id']
+            if v4 == " ":
+                template_type = "physical_only.j2"
+            if "BVI" in row["interface"]:
+                v5 = 'lag'
+                ipadd_dict = {'v1': v1, 'v2': v2, 'v3': v3, 'v4':v4, 'v5': v5}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done with creating physical interface with be of " + v1)
+            if "Hundred" in row["interface"]:
+                v5 = '100gbase-x-qsfp28'
+                ipadd_dict = {'v1': v1, 'v2': v2, 'v3': v3, 'v4':v4, 'v5': v5}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done with creating physical interface with be of " + v1)
+            if "Ten" in row["interface"]:
+                v5 = '10gbase-x-xfp'
+                ipadd_dict = {'v1': v1, 'v2': v2, 'v3': v3, 'v4':v4, 'v5': v5}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done with creating physical interface with be of " + v1)
+            if "Fort" in row["interface"]:
+                v5 = '40gbase-x-qsfpp'
+                ipadd_dict = {'v1': v1, 'v2': v2, 'v3': v3, 'v4':v4, 'v5': v5}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done with creating physical interface with be of " + v1)
+            if "GigabitEthernet" in row["interface"]:
+                v5 = '1000base-t'
+                ipadd_dict = {'v1': v1, 'v2': v2, 'v3': v3, 'v4':v4, 'v5': v5}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done with creating physical interface with be of " + v1)
+        return ipadd_list
+
+    def shut_interfaces(self,template_type = "shut_interfaces.j2"):
+        ipadd_dict ={}
+        shut_int_df = pd.read_csv("data_input\\service_discovery_show_ip_interface_brief.csv")
+        results = shut_int_df[~shut_int_df.status.str.contains("Up")]
+        results.to_csv("data_output/physical_shut.csv", index=False)
+        print(results.head(100))
+        for index, row in results.iterrows():
+            v1 = row["hostname"]
+            v2 = row["intf"]
+            if "Bundle-Ether" in row["intf"]:
+                v3 = 'lag'
+                ipadd_dict = {'v1': v1, 'v2': v2,'v3':v3}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+            if "Hundred" in row["intf"]:
+                v3 = '100gbase-x-qsfp28'
+                ipadd_dict = {'v1': v1, 'v2': v2, 'v3': v3, 'type': type}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done assigning vlan of " + v1 + " physical " + v2)
+            if "Ten" in row["intf"]:
+                v3 = '10gbase-x-xfp'
+                ipadd_dict = {'v1': v1, 'v2': v2, 'v3': v3, 'type': type}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done assigning vlan of " + v1 + " physical " + v2)
+            if "Fort" in row["intf"]:
+                v3 = '40gbase-x-qsfpp'
+                ipadd_dict = {'v1': v1, 'v2': v2, 'v3': v3, 'type': type}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done assigning vlan of " + v1 + " physical " + v2)
+            if "GigabitEthernet" in row["intf"]:
+                v3 = '1000base-t'
+                ipadd_dict = {'v1': v1, 'v2': v2, 'v3': v3, 'type': type}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done assigning vlan of " + v1 + " physical " + v2)
+            #print("Done with creating physical shutdown interface of " + v1)
+        return ipadd_list
+
+    def be_int(self,template_type = "be.j2"):
+        ipadd_dict = {}
+        be_df = pd.read_csv("data_input\\service_discovery_show_run_interface_bundle.csv")
+        be_df["bundle_id"] = "Bundle-Ether" + be_df["bundle_id"].astype(str)
+        new_be_df = be_df.rename(columns={"bundle_id": "interface", "interface": "xx"})
+        new_be_df["description"] = " "
+        new_be_df = new_be_df[["hostname", "interface", "description"]]
+        be_l2_df = pd.read_csv("data_input\\service_discovery_show_run_interface_l2vpn.csv")
+        be_l2_df_ = be_l2_df[~be_l2_df.interface.str.contains("Loopback")]
+        be_l2_df__ = be_l2_df_[~be_l2_df_.interface.str.contains("TenGigE")]
+        be_l2_df___ = be_l2_df__[~be_l2_df__.interface.str.contains("GigabitEthernet")]
+        new_be_l2_df = be_l2_df___[~be_l2_df___.interface.str.contains("HundredGigE")]
+        #df = df.dropna()
+        new_be_l2_df = new_be_l2_df[["hostname","interface","description"]]
+        be_l3_df = pd.read_csv("data_input\\service_discovery_show_run_interface_l3vpn.csv")
+        be_l3_df_ = be_l3_df[~be_l3_df.interface.str.contains("Loopback")]
+        be_l3_df__ = be_l3_df_[~be_l3_df_.interface.str.contains("TenGigE")]
+        be_l3_df___ = be_l3_df__[~be_l3_df__.interface.str.contains("GigabitEthernet")]
+        new_be_l3_df = be_l3_df___[~be_l3_df___.interface.str.contains("HundredGigE")]
+        #df1 = df1.dropna()
+        new_be_l3_df = new_be_l3_df[["hostname", "interface", "description"]]
+        results = pd.concat([new_be_df,new_be_l2_df,new_be_l3_df], ignore_index=True)
+        results.to_csv("data_output/be.csv", index=False)
         #merge but just display the common outputs
-        #results = pd.merge(df, df1, how='left', on=["SOURCE_BUNDLE_INTERFACE", "SOURCE_BUNDLE_INTERFACE"])
-        results = df1.merge(df[['HOSTNAME','SOURCE_BUNDLE_INTERFACE','SOURCE_IPV4_ADDRESS','SOURCE_IPV6_ADDRESS']])
-        results = results.dropna()
-        print(results)
+        # results = pd.merge(df, df1, how='left', on=["hostname])
+        # results = df1.merge(df[['HOSTNAME','SOURCE_BUNDLE_INTERFACE','SOURCE_IPV4_ADDRESS','SOURCE_IPV6_ADDRESS']])
+        # results = results.dropna()
         for index,row in results.iterrows():
             # if row['results__name'] == "Loopback0" or row['results__name'] == "Loopback1":
             #     print("Skipping interface " + row["results__name"] + " of " + row["HOSTNAME"])
             #     continue
-            for i in range(2):
-                if i == 0:
-                    v1 = row['HOSTNAME']
-                    v2 = row['SOURCE_BUNDLE_INTERFACE']
-                    v4 = row['SOURCE_IPV4_ADDRESS']
-                    v5 = row['results__id']
-                    ipadd_dict = {'v1': v1, 'v2': v2,'v4': v4, 'v5': v5}
-                    ipadd_output = self.template(template_type, ipadd_dict)
-                    ipadd_list.append(ipadd_output)
-                    print ("Done with IPV4 of " + v1 + " of " + v2)
-                if i == 1:
-                    v1 = row['HOSTNAME']
-                    v2 = row['SOURCE_BUNDLE_INTERFACE']
-                    v4 = row['SOURCE_IPV6_ADDRESS']
-                    v5 = row['results__id']
-                    ipadd_dict = {'v1': v1, 'v2': v2,'v4': v4, 'v5': v5}
-                    ipadd_output = self.template(template_type, ipadd_dict)
-                    ipadd_list.append(ipadd_output)
-                    print("Done with IPV6 of " + v1 + " of " + v2)
+            v1 = row['hostname']
+            v2 = row['interface']
+            v3 = row['description']
+            ipadd_dict = {'v1': v1, 'v2': v2,'v3': v3}
+            ipadd_output = self.template(template_type, ipadd_dict)
+            ipadd_list.append(ipadd_output)
+            print ("Done with creating bundle-ether of " + v1)
+        return ipadd_list
+
+    def add_connection(self,template_type="connections.j2"):
+        ipadd_dict = {}
+        df = pd.read_csv("data_output\\synched.csv")
+        results = df
+        for index, row in results.iterrows():
+            v1 = json.dumps([row["SOURCE_INTERFACE_ID"],row["HOSTNAME"]])
+            v2 = json.dumps([row["TARGET_INTERFACE_ID"], row["TARGET_HOSTNAME"]])
+            ipadd_dict = {'v1': v1, 'v2': v2}
+            ipadd_output = self.template(template_type, ipadd_dict)
+            ipadd_list.append(ipadd_output)
+        print("Done adding connection between " + str(v1) + " and " + str(v2))
+        return ipadd_list
+
+    def rt(self,template_type="rt.j2"):
+        ipadd_dict = {}
+        rt_list = []
+        rt_df = pd.read_csv("data_input\\service_discovery_show_run_vrf_details.csv")
+        for index, row in rt_df.iterrows():
+            #res = ast.literal_eval(ini_list)
+            rt_list_import = ast.literal_eval(row["ipv4_rt_import"])
+            rt_list_export = ast.literal_eval(row["ipv4_rt_export"])
+            for rt in rt_list_import:
+                if rt in rt_list:
+                    continue
+                else:
+                    rt_list.append(rt)
+            for rt in rt_list_export:
+                if rt in rt_list:
+                    continue
+                else:
+                    rt_list.append(rt)
+        print(len(rt_list))
+        for rt in rt_list:
+            v1 = rt
+            ipadd_dict = {'v1': v1}
+            ipadd_output = self.template(template_type, ipadd_dict)
+            ipadd_list.append(ipadd_output)
+            print("Done with RT of " + row["hostname"])
+        return ipadd_list
+
+    def assign_rt(self,template_type="assign_rt.j2"):
+        ipadd_dict = {}
+        rt_df = pd.read_csv("data_input\\service_discovery_show_run_vrf_details.csv")
+        #df.drop_duplicates(subset=['brand', 'style'], keep='last')
+        rt_df_ = rt_df.drop_duplicates(subset=['vrf'],keep='last')
+        for index, row in rt_df_.iterrows():
+            v1 = row['vrf']
+            v2 = json.dumps(ast.literal_eval(row["ipv4_rt_import"]))
+            v3 = json.dumps(ast.literal_eval(row["ipv4_rt_export"]))
+            ipadd_dict = {'v1': v1,'v2':v2,'v3':v3}
+            ipadd_output = self.template(template_type, ipadd_dict)
+            ipadd_list.append(ipadd_output)
+            print("Done with RT of " + row["hostname"])
+        return ipadd_list
+
+    def vrf(self,template_type = "vrf.j2"):
+        ipadd_dict = {}
+        vrf_df = pd.read_csv("data_input\\service_discovery_show_ip_interface_brief.csv")
+        vrf_df_ = vrf_df[~vrf_df.vrf.str.contains("default")]
+        for index, row in vrf_df_.iterrows():
+            v1 = row['vrf']
+            ipadd_dict = {'v1': v1}
+            ipadd_output = self.template(template_type, ipadd_dict)
+            ipadd_list.append(ipadd_output)
+            print("Done with vrf of " + row["hostname"])
+        return ipadd_list
+
+    def assign_vrf(self,template_type = "assign_vrf.j2"):
+        ipadd_dict = {}
+        df = pd.read_csv("data_input\\service_discovery_show_ip_interface_brief.csv")
+        df_ = df[~df.status.str.contains("own")]
+        df__ = df_[~df_.intf.str.contains("Loopback")]
+        results = df__[~df__.vrf.str.contains("default")]
+        for index, row in results.iterrows():
+            v2 = row["vrf"]
+            hostname = row["hostname"]
+            interface = row["intf"]
+            address = row["address"]
+            ipadd_dict = {'address':address,'v2': v2, 'hostname': hostname, 'interface': interface}
+            ipadd_output = self.template(template_type, ipadd_dict)
+            ipadd_list.append(ipadd_output)
+            print("Done with IP of " + " of " + v2)
+        return ipadd_list
+
+    def vlan(self,template_type = "vlan.j2"):
+        ipadd_dict = {}
+        phy_l3_df = pd.read_csv("data_input\\service_discovery_show_run_interface_l3vpn.csv")
+        phy_l2_df = pd.read_csv("data_input\\service_discovery_show_run_interface_l2vpn.csv")
+        phy_l3_df_ = phy_l3_df[~phy_l3_df.interface.str.contains("Loopback")]
+        phy_l3_df__ = phy_l3_df_[~phy_l3_df_.interface.str.contains("BVI")]
+        phy_l3_df__[["vlan"]] = phy_l3_df__[["vlan"]].fillna(0.0).astype(int)
+        #phy_l3_df__ = phy_l3_df__.vlan.astype(int)
+        phy_l3_df___ = phy_l3_df__[["hostname","interface","description","vlan"]]
+        phy_l2_df_ = phy_l2_df[~phy_l2_df.interface.str.contains("Loopback")]
+        phy_l2_df_[["vlan"]] = phy_l2_df_[["vlan"]].fillna(0.0).astype(int)
+        #phy_l2_df_ = phy_l2_df_.vlan.astype(int)
+        phy_l2_df__ = phy_l2_df_[["hostname", "interface", "description", "vlan"]]
+        results = pd.concat([phy_l3_df___,phy_l2_df__], ignore_index=True)
+        #rt_df_ = rt_df.drop_duplicates(subset=['vrf'], keep='last')
+        results_new = results.drop_duplicates(subset=["vlan"])
+        results_new.to_csv("data_output/assign_vlan.csv", index=False)
+        for index, row in results_new.iterrows():
+            v1 = row["vlan"]
+            v2 = str(row["vlan"])
+            ipadd_dict = {'v1': v1,'v2':v2}
+            ipadd_output = self.template(template_type, ipadd_dict)
+            ipadd_list.append(ipadd_output)
+            print("Done with vlan of " + v2 + " of " + row["hostname"])
+        return ipadd_list
+
+    def assign_vlan(self,template_type="assign_vlan.j2"):
+        ipadd_dict = {}
+        phy_l3_df = pd.read_csv("data_input\\service_discovery_show_run_interface_l3vpn.csv")
+        phy_l2_df = pd.read_csv("data_input\\service_discovery_show_run_interface_l2vpn.csv")
+        phy_l3_df_ = phy_l3_df[~phy_l3_df.interface.str.contains("Loopback")]
+        phy_l3_df__ = phy_l3_df_[~phy_l3_df_.interface.str.contains("BVI")]
+        phy_l3_df__[["vlan"]] = phy_l3_df__[["vlan"]].fillna(0.0).astype(int)
+        #phy_l3_df__ = phy_l3_df__.vlan.astype(int)
+        phy_l3_df___ = phy_l3_df__[["hostname","interface","description","vlan"]]
+        phy_l2_df_ = phy_l2_df[~phy_l2_df.interface.str.contains("Loopback")]
+        phy_l2_df_[["vlan"]] = phy_l2_df_[["vlan"]].fillna(0.0).astype(int)
+        #phy_l2_df_ = phy_l2_df_.vlan.astype(int)
+        phy_l2_df__ = phy_l2_df_[["hostname", "interface", "description", "vlan"]]
+        results = pd.concat([phy_l3_df___,phy_l2_df__], ignore_index=True)
+        results.to_csv("data_output/assign_vlan.csv", index=False)
+        print(results.head(100))
+        for index, row in results.iterrows():
+            v1 = row["hostname"]
+            v2 = row["interface"]
+            v3 = str(row["vlan"])
+            if "Bundle-Ether" in row["interface"] and "." in row["interface"]:
+                type = 'lag'
+                ipadd_dict = {'v1': v1, 'v2': v2,'v3':v3,'type':type}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done assigning vlan of " + v1 + " bundle " + v2)
+            if "Hundred" in row["interface"] and "." in row["interface"]:
+                type = '100gbase-x-qsfp28'
+                ipadd_dict = {'v1': v1, 'v2': v2,'v3':v3,'type': type}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done assigning vlan of " + v1 +" physical " + v2)
+            if "Ten" in row["interface"] and "." in row["interface"]:
+                type = '10gbase-x-xfp'
+                ipadd_dict = {'v1': v1, 'v2': v2,'v3':v3,'type': type}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done assigning vlan of " + v1 +" physical " + v2)
+            if "Fort" in row["interface"] and "." in row["interface"]:
+                type = '40gbase-x-qsfpp'
+                ipadd_dict = {'v1': v1, 'v2': v2,'v3':v3,'type': type}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done assigning vlan of " + v1 +" physical " + v2)
+            if "GigabitEthernet" in row["interface"] and "." in row["interface"]:
+                type = '1000base-t'
+                ipadd_dict = {'v1': v1, 'v2': v2,'v3':v3,'type': type}
+                ipadd_output = self.template(template_type, ipadd_dict)
+                ipadd_list.append(ipadd_output)
+                print("Done assigning vlan of " + v1 +" physical " + v2)
+        return ipadd_list
+
+    def ipadd_be(self,template_type = "ip_add_be.j2"):
+        ipadd_dict = {}
+        df = pd.read_csv("data_input\\service_discovery_show_run_interface_ip_address.csv")
+        #df1 = pd.read_csv("data_input\\service_discovery_show_ip_interface_brief.csv")
+        results = df
+        results.to_csv("data_output/vrf.csv", index=False)
+        # df1 = df1.dropna()
+        #merge but just display the common outputs
+        #results = pd.merge(df_, df1_, how='left', on=["hostname"])
+        #results = df1.merge(df[['HOSTNAME','SOURCE_BUNDLE_INTERFACE','SOURCE_IPV4_ADDRESS','SOURCE_IPV6_ADDRESS']])
+        #results = df
+        for index,row in results.iterrows():
+            # if row['results__name'] == "Loopback0" or row['results__name'] == "Loopback1":
+            #     print("Skipping interface " + row["results__name"] + " of " + row["HOSTNAME"])
+            #     continue
+            # for i in range(2):
+            #     if i == 0:
+            # v1 = row['HOSTNAME']
+            # v2 = row['SOURCE_BUNDLE_INTERFACE']
+            # v4 = row['SOURCE_IPV4_ADDRESS']
+            # v5 = bundle_id
+            # ipadd_dict = {'v1': v1, 'v2': v2,'v4': v4, 'v5': v5}
+            # ipadd_output = self.template(template_type, ipadd_dict)
+            # ipadd_list.append(ipadd_output)
+            # print ("Done with IPV4 of " + v1 + " of " + v2)
+        # if i == 1:
+            if "/" in row['address']:
+                v4 = row['address']
+            else:
+                cidr = row['address']
+                cidr = cidr.split(" ")
+                cidr_ = IPAddress(cidr[1]).netmask_bits()
+                cidr[1] = str(cidr_)
+                v4 = "/".join(cidr)
+            v1 = row['hostname']
+            v2 = row['interface']
+            ipadd_dict = {'v1': v1, 'v2': v2,'v4': v4}
+            ipadd_output = self.template(template_type, ipadd_dict)
+            ipadd_list.append(ipadd_output)
+            print("Done with IP of " + v1 + " of " + v2)
         return ipadd_list
 
 

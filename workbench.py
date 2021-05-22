@@ -13,6 +13,13 @@ pd.set_option('display.width', 1000)
 nautobot = pynautobot.api(
     url="http://10.66.69.149:8481/",
     token="b7d568b9a5a400a249a057fca8a2b0d6dcc05828")
+
+my_cable = nautobot.dcim.cables
+for cable in my_cable.all():
+    cable.delete()
+    print("Deleted " + str(cable))
+
+
 #
 # to_add_device = {
 #   "name": "TestDevice2",
@@ -216,3 +223,7 @@ nautobot = pynautobot.api(
 # Loopback1 ee73fe77-3527-4a40-87a9-a4780dcddfc0 AGSPXAGSCICU001
 # Loopback0 430d6459-d87c-4e17-9134-9b900ace1156 ALF00634CICN001
 
+# how to get interface id given interface name and device:
+# my_interface.get(name="HundredGigE0/0/2/0",device="AGSPXAGSCICU001")
+# HundredGigE0/0/2/0
+# my_interface.id
