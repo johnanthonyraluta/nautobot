@@ -395,11 +395,12 @@ def inventory():
     render_devices = render_template()
     to_add_inventory = render_devices.inventory()
     for inventory in to_add_inventory:
-        try:
-            inventory_conv = json.loads(inventory)
-            device = nautobot.dcim.devices.get(name=inventory_conv["device"]["name"])
+        inventory_conv = json.loads(inventory)
+        device = nautobot.dcim.devices.get(name=inventory_conv["device"]["name"])
+        if device != None:
             inventory_conv["device"]["id"] = device.id
             print(inventory_conv)
+        try:
             add_inventory = my_inventory.create(inventory_conv)
         except pynautobot.RequestError as e:
             print(e.error)
